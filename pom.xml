@@ -20,23 +20,22 @@
 
   <dependencies>
 <!--    здесь зависимости, которые ты стягиваешь. Поищи, какая версия хадупа тебе нужна-->
+<!--    <dependency>-->
+<!--      <groupId>org.apache.hadoop</groupId>-->
+<!--      <artifactId>hadoop-mapreduce-examples</artifactId>-->
+<!--      <version>2.7.3</version>-->
+<!--      <scope>provided</scope>-->
+<!--    </dependency>-->
     <dependency>
       <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-mapreduce-examples</artifactId>
-      <version>2.7.3</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-mapreduce-client-common</artifactId>
-      <version>2.7.3</version>
+      <artifactId>hadoop-client</artifactId>
+      <version>3.3.2</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-common</artifactId>
-      <version>2.7.3</version>
-      <scope>provided</scope>
+      <version>3.3.2</version>
     </dependency>
   </dependencies>
 
@@ -118,7 +117,7 @@
             <archive>
               <manifest>
                 <addClasspath>true</addClasspath>
-                <mainClass>ru.zuzu.WordCount</mainClass>
+                <mainClass>ru.zuzu.RunTests</mainClass>
               </manifest>
             </archive>
           </configuration>

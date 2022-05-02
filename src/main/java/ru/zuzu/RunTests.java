@@ -1,79 +1,51 @@
-//package ru.zuzu;
-//
-//import org.apache.hadoop.conf.Configuration;
-//import org.apache.hadoop.fs.FSDataInputStream;
-//import org.apache.hadoop.fs.FSDataOutputStream;
-//import org.apache.hadoop.fs.FileSystem;
-//import org.apache.hadoop.fs.Path;
-//import org.apache.hadoop.io.DoubleWritable;
-//import org.apache.hadoop.io.LongWritable;
-//import org.apache.hadoop.io.SequenceFile;
-//import org.apache.hadoop.io.Text;
-//import org.apache.hadoop.io.compress.DefaultCodec;
-//import org.apache.hadoop.mapreduce.Job;
-//import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-//import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
-//import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
-//import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
-//import org.apache.hadoop.mapreduce.lib.jobcontrol.ControlledJob;
-//import org.apache.hadoop.mapreduce.lib.jobcontrol.JobControl;
-//import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-//import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
-//import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
-//import org.apache.log4j.Logger;
-//
-//import java.io.*;
-//
-///*
-//This is the main class to run all jobs in dependant order.
-//Path locations are provided by String arguments and passed in methods to retrieve the inputs directly from files via cached files
-//or as outputs directly from the previous jobs in SequenceFileOutputFormat.
-//The Job controller controls the correct execution of the files as it checks whether the previous job has generated an output already.
-//
-//
-// */
-//public class RunAll {
-//
-//    public static void main(String[] args) throws Exception {
-//
+package ru.zuzu;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.*;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.jobcontrol.ControlledJob;
+import org.apache.hadoop.mapreduce.lib.jobcontrol.JobControl;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class RunTests {
+
+    public static void main(String[] args) throws Exception {
+
 //        Logger logger = Logger.getLogger(RunAll.class);
-//
-//        String Prep = args[2]+"/Preprocessing";
-//        String JobA = args[2]+"/A";
-//        String JobB = args[2]+"/B";
-//        String JobC1 = args[2]+"/C1";
-//        String JobC2 = args[2]+"/C2";
-//        String JobSum = args[2]+"/Sum";
-//        String JobChi = args[2]+"/Chi";
-//        String JobTop150 = args[2]+"/Top150";
-//        String JobLine= args[2]+"/Line";
-//
-//        //Preprocessing Job - reading in inputs file and stopwords file and filtering for desired word formats
-//        Configuration configuration = new Configuration() ;
-//        Job jobPreprocessing = Job.getInstance(configuration, "jobPreprocessing");
-//
-//        jobPreprocessing.setJarByClass(Preprocessing.class);
-//        jobPreprocessing.setSortComparatorClass(TextPair.Comparator.class);
-//        jobPreprocessing.setMapperClass(Preprocessing.MyMapper.class);
-//        jobPreprocessing.setMapOutputKeyClass(Text.class);
-//        jobPreprocessing.setMapOutputValueClass(Text.class);
-//        jobPreprocessing.setOutputKeyClass(Text.class);
-//        jobPreprocessing.setOutputValueClass(TextPair.class);
-//        jobPreprocessing.setInputFormatClass(TextInputFormat.class);
-//        jobPreprocessing.setOutputFormatClass(SequenceFileOutputFormat.class);
-//        jobPreprocessing.addCacheFile(new Path(args[1]).toUri());
-//        FileInputFormat.addInputPath(jobPreprocessing, new Path(args[0]));
-//
-//        // Compression for the big dataset of 50 GB --> from 130 MB only 20 MB are used for calculations
-//
+
+        String Prep = args[1]+"/Preprocessing";
+        String JobA = args[1]+"/A";
+        String JobB = args[1]+"/B";
+        String JobC1 = args[1]+"/C1";
+        String JobC2 = args[1]+"/C2";
+        String JobSum = args[1]+"/Sum";
+        String JobChi = args[1]+"/Chi";
+        String JobTop150 = args[1]+"/Top150";
+        String JobLine= args[1]+"/Line";
+
+        //Preprocessing Job - reading in inputs file and stopwords file and filtering for desired word formats
+        Configuration conf = new Configuration();
+        Job getTextFromJSONJob = Job.getInstance(conf, "word count");
+        getTextFromJSONJob.setNumReduceTasks(1);
+        getTextFromJSONJob.setJarByClass(GetFromJSONJob.class);
+        getTextFromJSONJob.setMapperClass(GetFromJSONJob.TokenizerMapperWithJson.class);
+        getTextFromJSONJob.setOutputKeyClass(Text.class);
+        getTextFromJSONJob.setOutputValueClass(Text.class);
+        FileInputFormat.addInputPath(getTextFromJSONJob, new Path(args[0]));
+//        FileOutputFormat.setOutputPath(jobPreprocessing, new Path(Prep));
+
+        // Compression for the big dataset of 50 GB --> from 130 MB only 20 MB are used for calculations
+
 //        FileOutputFormat.setCompressOutput(jobPreprocessing, true);
 //        FileOutputFormat.setOutputCompressorClass(jobPreprocessing, DefaultCodec.class);
 //        SequenceFileOutputFormat.setOutputCompressionType(jobPreprocessing, SequenceFile.CompressionType.BLOCK);
-//
-//        SequenceFileOutputFormat.setOutputPath(jobPreprocessing, new Path(Prep));
-//
-//        //JobSum taking Input from Input
-//
+
+        FileOutputFormat.setOutputPath(getTextFromJSONJob, new Path(Prep));
+
+        //JobSum taking Input from Input
+
 //        Job jobSum = Job.getInstance(new Configuration(), "jobSum");
 //        jobSum.setJarByClass(JobSum.class);
 //        jobSum.setMapperClass(JobSum.MapperSum.class);
@@ -86,35 +58,47 @@
 //        jobSum.setOutputFormatClass(TextOutputFormat.class);
 //        FileInputFormat.setInputPaths(jobSum, new Path(args[0]));
 //        FileOutputFormat.setOutputPath(jobSum, new Path(JobSum));
-//
-//        //ControlledJob controlledJobPrep = new ControlledJob(jobPreprocessing.getConfiguration());
-//
-//        if (!jobPreprocessing.waitForCompletion(true))
-//            System.exit(1);
+
+        //ControlledJob controlledJobPrep = new ControlledJob(jobPreprocessing.getConfiguration());
+
+        if (!getTextFromJSONJob.waitForCompletion(true))
+            System.exit(1);
 //        if (!jobSum.waitForCompletion(true))
 //            System.exit(1);
-//
-//
-//        // JobA taking Input from Preprocessing
-//
+
+
+        // JobA taking Input from Preprocessing
+
+        Job filteringJob = Job.getInstance(new Configuration(), "jobA");
+        filteringJob.setNumReduceTasks(1);
+        filteringJob.setJarByClass(FilteringJob.class);
+        filteringJob.setMapperClass(FilteringJob.TokenizerMapper.class);
+//        jobA.setCombinerClass(WordCount.IntSumReducer.class);
+//        filteringJob.setReducerClass(FilteringJob.IntSumReducer.class);
+        filteringJob.setOutputKeyClass(NullWritable.class);
+        filteringJob.setOutputValueClass(Text.class);
+        filteringJob.addCacheFile(new Path(args[2]).toUri());
+        FileInputFormat.addInputPath(filteringJob, new Path(Prep));
+        FileOutputFormat.setOutputPath(filteringJob, new Path(JobA));
+
 //        Job jobA = Job.getInstance(new Configuration(), "jobA");
-//        jobA.setJarByClass(JobA.class);
-//        jobA.setSortComparatorClass(TextPair.Comparator.class);
+//        jobA.setJarByClass(WordCount.class);
+////        jobA.setSortComparatorClass(WordCount.Comparator.class);
 //        jobA.setMapOutputKeyClass(TextPair.class);
 //        jobA.setMapOutputValueClass(TextPair.class);
 //        jobA.setOutputKeyClass(TextPair.class);
 //        jobA.setOutputValueClass(LongWritable.class);
-//        jobA.setMapperClass(JobA.MapperA.class);
-//        jobA.setReducerClass(JobA.ReducerA.class);
+//        jobA.setMapperClass(WordCount.TokenizerMapper.class);
+//        jobA.setReducerClass(WordCount.IntSumReducer.class);
 //        jobA.setInputFormatClass(SequenceFileInputFormat.class);
 //        jobA.setOutputFormatClass(SequenceFileOutputFormat.class);
 //        SequenceFileInputFormat.setInputPaths(jobA, new Path(Prep));
 //        SequenceFileOutputFormat.setOutputPath(jobA, new Path(JobA));
-//
-//        ControlledJob controlledJobA = new ControlledJob(jobA.getConfiguration());
-//
-//        //JobB taking Input from JobA
-//
+
+        ControlledJob controlledJobA = new ControlledJob(filteringJob.getConfiguration());
+
+        //JobB taking Input from JobA
+
 //        Job jobB = Job.getInstance(new Configuration(), "jobB");
 //        jobB.setJarByClass(JobB.class);
 //        jobB.setMapperClass(JobB.MapperB.class);
@@ -133,10 +117,10 @@
 //        //JobB depends on JobA
 //        ControlledJob controlledJobB = new ControlledJob(jobB.getConfiguration());
 //        controlledJobB.addDependingJob(controlledJobA);
-//
-//
-//        //JobC1 taking Input from Preprocessing
-//
+
+
+        //JobC1 taking Input from Preprocessing
+
 //        Job jobC1 = Job.getInstance(new Configuration(), "jobC1");
 //        jobC1.setJarByClass(JobC1.class);
 //        jobC1.setMapperClass(JobC1.MapperC1.class);
@@ -238,26 +222,26 @@
 //
 //        ControlledJob controlledJobLine = new ControlledJob(jobLine.getConfiguration());
 //        controlledJobLine.addDependingJob(controlledJobTop150);
-//
-//        // Job control to check whether dependant jobs are executable if previous job has finished.
-//        JobControl jobControl = new JobControl("jobControl");
+
+        // Job control to check whether dependant jobs are executable if previous job has finished.
+        JobControl jobControl = new JobControl("jobControl");
 //        jobControl.addJob(controlledJobC1);
-//        jobControl.addJob(controlledJobA);
+        jobControl.addJob(controlledJobA);
 //        jobControl.addJob(controlledJobB);
 //        jobControl.addJob(controlledJobC2);
 //        jobControl.addJob(controlledJobChi);
 //        jobControl.addJob(controlledJobTop150);
 //        jobControl.addJob(controlledJobLine);
-//        Thread starter = new Thread(jobControl);
-//        starter.start();
-//
-//
-//        while(!jobControl.allFinished()) {
-//            Thread.sleep(1000);
-//        }
-//
-//
-//        //OutputText takes Input from JobLine and JobTop150 to produce final output file output.txt using File Syste Data Output Stream and Buffered Reader.
+        Thread starter = new Thread(jobControl);
+        starter.start();
+
+
+        while(!jobControl.allFinished()) {
+            Thread.sleep(1000);
+        }
+
+
+        //OutputText takes Input from JobLine and JobTop150 to produce final output file output.txt using File Syste Data Output Stream and Buffered Reader.
 //        Path p = new Path(args[2] + "/output.txt");
 //        FileSystem f = FileSystem.get(new Configuration());
 //        FSDataOutputStream fsDataOutputStream = f.create(p);
@@ -280,5 +264,7 @@
 //        bufferedWriter.flush();
 //        bufferedWriter.close();
 //        System.exit(0);
-//    }
-//}
+        System.exit(0);
+    }
+
+}
