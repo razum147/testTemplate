@@ -16,7 +16,8 @@ public class RunTests {
 //        Logger logger = Logger.getLogger(RunAll.class);
 
         String Prep = args[1]+"/Preprocessing";
-        String JobA = args[1]+"/A";
+        String allWordsJob = args[1]+"/allWords";
+        String categoryTextsJob = args[1]+"/categoryTexts";
         String JobB = args[1]+"/B";
         String JobC1 = args[1]+"/C1";
         String JobC2 = args[1]+"/C2";
@@ -79,7 +80,7 @@ public class RunTests {
         filteringJob.setOutputValueClass(Text.class);
         filteringJob.addCacheFile(new Path(args[2]).toUri());
         FileInputFormat.addInputPath(filteringJob, new Path(Prep));
-        FileOutputFormat.setOutputPath(filteringJob, new Path(JobA));
+        FileOutputFormat.setOutputPath(filteringJob, new Path(allWordsJob));
 
 //        Job jobA = Job.getInstance(new Configuration(), "jobA");
 //        jobA.setJarByClass(WordCount.class);
@@ -95,7 +96,20 @@ public class RunTests {
 //        SequenceFileInputFormat.setInputPaths(jobA, new Path(Prep));
 //        SequenceFileOutputFormat.setOutputPath(jobA, new Path(JobA));
 
-        ControlledJob controlledJobA = new ControlledJob(filteringJob.getConfiguration());
+        ControlledJob controlledFilteringJob = new ControlledJob(filteringJob.getConfiguration());
+
+        Job categotyTextsJob = Job.getInstance(new Configuration(), "jobCategoryTexts");
+        categotyTextsJob.setNumReduceTasks(1);
+        categotyTextsJob.setJarByClass(CategoryTextsJob.class);
+        categotyTextsJob.setMapperClass(CategoryTextsJob.CategoryTextsJobMapper.class);
+        categotyTextsJob.setReducerClass(CategoryTextsJob.CategoryTextsJobReducer.class);
+//        filteringJob.setReducerClass(FilteringJob.IntSumReducer.class);
+        categotyTextsJob.setOutputKeyClass(Text.class);
+        categotyTextsJob.setOutputValueClass(CategoryWritable.class);
+        FileInputFormat.addInputPath(categotyTextsJob, new Path(args[0]));
+        FileOutputFormat.setOutputPath(categotyTextsJob, new Path(categoryTextsJob));
+
+        ControlledJob controlledcategotyTextsJob = new ControlledJob(categotyTextsJob.getConfiguration());
 
         //JobB taking Input from JobA
 
@@ -226,7 +240,8 @@ public class RunTests {
         // Job control to check whether dependant jobs are executable if previous job has finished.
         JobControl jobControl = new JobControl("jobControl");
 //        jobControl.addJob(controlledJobC1);
-        jobControl.addJob(controlledJobA);
+        jobControl.addJob(controlledFilteringJob);
+        jobControl.addJob(controlledcategotyTextsJob);
 //        jobControl.addJob(controlledJobB);
 //        jobControl.addJob(controlledJobC2);
 //        jobControl.addJob(controlledJobChi);
