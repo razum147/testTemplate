@@ -4,17 +4,22 @@ import java.io.*;
 
 import org.apache.hadoop.io.*;
 
-public class TextPair implements Writable {
+public class TextPair implements WritableComparable<TextPair> {
 
     private Text first;
     private Text second;
 
     public TextPair() {
-        set(new Text(), new Text());
+        super();
+        this.first = new Text();
+        this.second = new Text();
     }
 
     public TextPair(String first, String second) {
-        set(new Text(first), new Text(second));
+        super();
+        this.first = new Text(first);
+        this.second = new Text(second);
+//        set(new Text(first), new Text(second));
     }
 
     public TextPair(Text first, Text second) {
@@ -64,4 +69,30 @@ public class TextPair implements Writable {
     public String toString() {
         return first + "\t" + second;
     }
+
+    @Override
+    public int compareTo(TextPair o) {
+        int cmp = this.second.compareTo(o.second);
+        if (cmp != 0)
+            return cmp;
+        return this.first.compareTo(o.first);
+    }
+
+//    public static class TextPairComparator extends WritableComparator {
+//
+//        protected TextPairComparator() {
+//            super(TextPair.class, true);
+//        }
+//
+//        @Override
+//        public int compare(WritableComparable w1, WritableComparable w2) {
+//            TextPair ip1 = (TextPair) w1;
+//            TextPair ip2 = (TextPair) w2;
+//            int cmp = ip1.compareTo(ip2);
+////            if (cmp != 0) {
+//            return cmp;
+////            }
+////            return ip2.getRating().compareTo(ip1.getRating()); //reverse
+//        }
+//    }
 }

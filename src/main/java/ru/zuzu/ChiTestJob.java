@@ -124,7 +124,8 @@ public class ChiTestJob {
 //                chiValue.set(chiSquare);
 
             }
-            context.write(key, new Text(chiSquare.toString()));
+            String[] splittedText = key.toString().split(":");
+            context.write(new Text(splittedText[0]), new Text(splittedText[1].concat(":").concat(chiSquare.toString())));
 
 //            context.write(key, new Text(result.toString()));
         }

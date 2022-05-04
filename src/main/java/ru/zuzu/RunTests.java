@@ -2,6 +2,9 @@ package ru.zuzu;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.filecache.DistributedCache;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.*;
 import org.apache.hadoop.mapreduce.Job;
@@ -13,7 +16,9 @@ import org.apache.hadoop.mapreduce.lib.jobcontrol.ControlledJob;
 import org.apache.hadoop.mapreduce.lib.jobcontrol.JobControl;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
+import java.io.*;
 import java.net.URI;
 
 public class RunTests {
@@ -34,7 +39,7 @@ public class RunTests {
         String JobSum = args[1] + "/Sum";
         String jobChiPath = args[1] + "/Chi";
         String JobTop150 = args[1] + "/Top150";
-        String JobLine = args[1] + "/Line";
+        String jobResultPath = args[1] + "/result";
 
         //Preprocessing Job - reading in inputs file and stopwords file and filtering for desired word formats
         Configuration conf = new Configuration();
@@ -285,7 +290,7 @@ public class RunTests {
         Job jobChi = Job.getInstance(new Configuration(), "jobChi");
         jobChi.setJarByClass(ChiTestJob.class);
 //        jobChi.setSortComparatorClass(TextPair.Comparator.class);
-        jobChi.addCacheFile(new Path(countsPath +"/result2-r-00000").toUri());
+        jobChi.addCacheFile(new Path(countsPath + "/result2-r-00000").toUri());
 //        jobChi.setMapperClass(ChiTestJob.MapperChi.class);
         jobChi.setReducerClass(ChiTestJob.ChiJobReducer.class);
         jobChi.setOutputKeyClass(Text.class);
@@ -294,6 +299,9 @@ public class RunTests {
 //        jobChi.setMapOutputValueClass(TextPairLong.class);
 //        jobChi.setInputFormatClass(SequenceFileInputFormat.class);
 //        jobChi.setOutputFormatClass(SequenceFileOutputFormat.class);
+        jobChi.setOutputFormatClass(SequenceFileOutputFormat.class);
+        jobChi.setMapOutputKeyClass(Text.class);
+        jobChi.setMapOutputValueClass(Text.class);
         MultipleInputs.addInputPath(jobChi, new Path(jobAPath), SequenceFileInputFormat.class, ChiTestJob.ChiJobAMapper.class);
         MultipleInputs.addInputPath(jobChi, new Path(jobB2Path), SequenceFileInputFormat.class, ChiTestJob.ChiJobBMapper.class);
         MultipleInputs.addInputPath(jobChi, new Path(jobCPath), SequenceFileInputFormat.class, ChiTestJob.ChiJobCMapper.class);
@@ -309,23 +317,23 @@ public class RunTests {
 //
 //        //JobTop150 taking Input from JobChi
 //
-//        Job jobTop150 = Job.getInstance(new Configuration(), "jobTop150");
-//        jobTop150.setJarByClass(JobTop150.class);
-//        jobTop150.setMapperClass(JobTop150.MapperTop150.class);
-//        jobTop150.setReducerClass(JobTop150.ReducerTop150.class);
-//        jobTop150.setGroupingComparatorClass(CatComp.class);
-//        jobTop150.setSortComparatorClass(ChiComp.class);
-//        jobTop150.setOutputKeyClass(Text.class);
-//        jobTop150.setOutputValueClass(Text.class);
-//        jobTop150.setMapOutputKeyClass(PairDouble.class);
-//        jobTop150.setMapOutputValueClass(PairDouble.class);
-//        jobTop150.setInputFormatClass(SequenceFileInputFormat.class);
-//        jobTop150.setOutputFormatClass(TextOutputFormat.class);
-//        SequenceFileInputFormat.setInputPaths(jobTop150, new Path(JobChi));
-//        TextOutputFormat.setOutputPath(jobTop150, new Path(JobTop150));
-//
-//        ControlledJob controlledJobTop150 = new ControlledJob(jobTop150.getConfiguration());
-//        controlledJobTop150.addDependingJob(controlledJobChi);
+        Job jobResult = Job.getInstance(new Configuration(), "jobResult");
+        jobResult.setJarByClass(JobResult.class);
+        jobResult.setMapperClass(JobResult.JobResultMapper.class);
+        jobResult.setReducerClass(JobResult.JobResultReducer.class);
+//        jobResult.setGroupingComparatorClass(CatComp.class);
+//        jobResult.setSortComparatorClass(.class);
+        jobResult.setOutputKeyClass(Text.class);
+        jobResult.setOutputValueClass(Text.class);
+        jobResult.setMapOutputKeyClass(Text.class);
+        jobResult.setMapOutputValueClass(TextPair.class);
+        jobResult.setInputFormatClass(SequenceFileInputFormat.class);
+//        jobResult.setOutputFormatClass(TextOutputFormat.class);
+        FileInputFormat.addInputPath(jobResult, new Path(jobChiPath + "/part-r-00000"));
+        FileOutputFormat.setOutputPath(jobResult, new Path(jobResultPath));
+
+        ControlledJob controlledJobResult = new ControlledJob(jobResult.getConfiguration());
+        controlledJobResult.addDependingJob(controlledChiTestJob);
 //
 //        //JopLine taking Input from JobTop150
 //
@@ -357,6 +365,7 @@ public class RunTests {
         jobControl.addJob(controlledChiTestJob);
         jobControl.addJob(controlledgetCategoriesJob);
         jobControl.addJob(controlledJobB2);
+        jobControl.addJob(controlledJobResult);
 //        jobControl.addJob(controlledJobB);
 //        jobControl.addJob(controlledJobC2);
 //        jobControl.addJob(controlledJobChi);
@@ -372,28 +381,27 @@ public class RunTests {
 
 
         //OutputText takes Input from JobLine and JobTop150 to produce final output file output.txt using File Syste Data Output Stream and Buffered Reader.
-//        Path p = new Path(args[2] + "/output.txt");
-//        FileSystem f = FileSystem.get(new Configuration());
-//        FSDataOutputStream fsDataOutputStream = f.create(p);
-//        BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(fsDataOutputStream));
-//
-//        String[] inputs = {JobTop150 + "/part-r-00000", JobLine + "/part-r-00000"};
-//        for (String input : inputs) {
-//            Path path = new Path(input);
-//            FSDataInputStream fsDataInputStream = f.open(path);
-//            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new DataInputStream(fsDataInputStream)));
-//            String text;
-//            while ((text = bufferedReader.readLine()) != null) {
-//                logger.info(text);
-//                bufferedWriter.write(text);
-//                bufferedWriter.newLine();
-//            }
-//            bufferedWriter.newLine();
-//            bufferedReader.close();
-//        }
-//        bufferedWriter.flush();
-//        bufferedWriter.close();
-//        System.exit(0);
+        Path p = new Path(args[1] + "/output.txt");
+        FileSystem f = FileSystem.get(new Configuration());
+        FSDataOutputStream fsDataOutputStream = f.create(p);
+        BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(fsDataOutputStream));
+
+        String[] inputs = {jobResultPath + "/part-r-00000"};
+        for (String input : inputs) {
+            Path path = new Path(input);
+            FSDataInputStream fsDataInputStream = f.open(path);
+            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new DataInputStream(fsDataInputStream)));
+            String text;
+            while ((text = bufferedReader.readLine()) != null) {
+                bufferedWriter.write(text);
+                bufferedWriter.newLine();
+            }
+            bufferedWriter.newLine();
+            bufferedReader.close();
+        }
+        bufferedWriter.flush();
+        bufferedWriter.close();
+        System.exit(0);
         System.exit(0);
     }
 
