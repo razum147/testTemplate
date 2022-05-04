@@ -54,7 +54,6 @@ public class CategoryTextsJob {
 
 //            valueToEmit.set(sb.substring(0, sb.length() - 1)); //to remove the last ','
             context.write(key, categoryWritable);
-            System.out.println(categoryWritable.getReviewList().size());
         }
     }
 }

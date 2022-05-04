@@ -5,9 +5,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.net.URI;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.StringTokenizer;
+import java.util.*;
 
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.NullWritable;
@@ -21,7 +19,6 @@ public class FilteringJob {
     public static class TokenizerMapper
             extends Mapper<Object, Text, NullWritable, Text> {
 
-        private final static IntWritable ONE = new IntWritable(1);
         private Text word = new Text();
 
         private Set<String> patternsToSkip = new HashSet<>();
@@ -67,19 +64,22 @@ public class FilteringJob {
         }
     }
 
-//    public static class IntSumReducer
-//            extends Reducer<Text, IntWritable, Text, IntWritable> {
-//
-//        public void reduce(Text key, Iterable<IntWritable> values,
-//                           Context context
-//        ) throws IOException, InterruptedException {
-//            int sum = 0;
-//            for (IntWritable val : values) {
-//                sum += val.get();
-//            }
-//            context.write(key, new IntWritable(sum));
-//        }
-//    }
+    public static class WordReducer
+            extends Reducer<NullWritable, Text, NullWritable, Text> {
+
+        public void reduce(NullWritable key, Iterable<Text> values,
+                           Context context
+        ) throws IOException, InterruptedException {
+            ArrayList<String> test = new ArrayList();
+            for (Text word : values) {
+                test.add(word.toString());
+            }
+            Collections.sort(test);
+            for (String word : test) {
+                context.write(NullWritable.get(), new Text(word));
+            }
+        }
+    }
 
 //    public static void main(String[] args) throws Exception {
 //        Configuration conf = new Configuration();

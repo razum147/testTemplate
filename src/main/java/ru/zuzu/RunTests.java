@@ -1,13 +1,20 @@
 package ru.zuzu;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.*;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.jobcontrol.ControlledJob;
 import org.apache.hadoop.mapreduce.lib.jobcontrol.JobControl;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
+
+import java.net.URI;
 
 public class RunTests {
 
@@ -15,16 +22,19 @@ public class RunTests {
 
 //        Logger logger = Logger.getLogger(RunAll.class);
 
-        String Prep = args[1]+"/Preprocessing";
-        String allWordsJob = args[1]+"/allWords";
-        String categoryTextsJob = args[1]+"/categoryTexts";
-        String JobB = args[1]+"/B";
-        String JobC1 = args[1]+"/C1";
-        String JobC2 = args[1]+"/C2";
-        String JobSum = args[1]+"/Sum";
-        String JobChi = args[1]+"/Chi";
-        String JobTop150 = args[1]+"/Top150";
-        String JobLine= args[1]+"/Line";
+        String Prep = args[1] + "/Preprocessing";
+        String allWordsJob = args[1] + "/allWords";
+        String categoryTextsJob = args[1] + "/categoryTexts";
+        String jobBPath = args[1] + "/B";
+        String jobB2Path = args[1] + "/B2";
+        String jobAPath = args[1] + "/A";
+        String jobCPath = args[1] + "/C";
+        String countsPath = args[1] + "/S";
+        String countsCategoriesPath = args[1] + "/categories";
+        String JobSum = args[1] + "/Sum";
+        String jobChiPath = args[1] + "/Chi";
+        String JobTop150 = args[1] + "/Top150";
+        String JobLine = args[1] + "/Line";
 
         //Preprocessing Job - reading in inputs file and stopwords file and filtering for desired word formats
         Configuration conf = new Configuration();
@@ -32,16 +42,10 @@ public class RunTests {
         getTextFromJSONJob.setNumReduceTasks(1);
         getTextFromJSONJob.setJarByClass(GetFromJSONJob.class);
         getTextFromJSONJob.setMapperClass(GetFromJSONJob.TokenizerMapperWithJson.class);
-        getTextFromJSONJob.setOutputKeyClass(Text.class);
+//        getTextFromJSONJob.setReducerClass(GetFromJSONJob.IntSumReducer.class);
+        getTextFromJSONJob.setOutputKeyClass(NullWritable.class);
         getTextFromJSONJob.setOutputValueClass(Text.class);
         FileInputFormat.addInputPath(getTextFromJSONJob, new Path(args[0]));
-//        FileOutputFormat.setOutputPath(jobPreprocessing, new Path(Prep));
-
-        // Compression for the big dataset of 50 GB --> from 130 MB only 20 MB are used for calculations
-
-//        FileOutputFormat.setCompressOutput(jobPreprocessing, true);
-//        FileOutputFormat.setOutputCompressorClass(jobPreprocessing, DefaultCodec.class);
-//        SequenceFileOutputFormat.setOutputCompressionType(jobPreprocessing, SequenceFile.CompressionType.BLOCK);
 
         FileOutputFormat.setOutputPath(getTextFromJSONJob, new Path(Prep));
 
@@ -67,20 +71,52 @@ public class RunTests {
 //        if (!jobSum.waitForCompletion(true))
 //            System.exit(1);
 
+        Configuration conf3 = new Configuration();
+        Job getCategoriesJob = Job.getInstance(conf3, "categories");
+        getCategoriesJob.setNumReduceTasks(1);
+        getCategoriesJob.getConfiguration().set("mapreduce.output.basename", "result");
+        getCategoriesJob.setJarByClass(GetCategoriesJob.class);
+        getCategoriesJob.setMapperClass(GetCategoriesJob.TokenizerMapper.class);
+        getCategoriesJob.setReducerClass(GetCategoriesJob.WordReducer.class);
+        getCategoriesJob.setOutputKeyClass(Text.class);
+        getCategoriesJob.setOutputValueClass(NullWritable.class);
+        FileInputFormat.addInputPath(getCategoriesJob, new Path(args[0]));
+
+        FileOutputFormat.setOutputPath(getCategoriesJob, new Path(countsCategoriesPath));
+
+        ControlledJob controlledgetCategoriesJob = new ControlledJob(getCategoriesJob.getConfiguration());
+
+
+        Configuration conf2 = new Configuration();
+        Job jobCount = Job.getInstance(conf2, "jobCount");
+        jobCount.setNumReduceTasks(1);
+        jobCount.getConfiguration().set("mapreduce.output.basename", "result2");
+        jobCount.setJarByClass(CountReviewsJob.class);
+        jobCount.setMapperClass(CountReviewsJob.TokenizerMapperWithJson.class);
+        jobCount.setReducerClass(CountReviewsJob.IntSumReducer.class);
+        jobCount.setOutputKeyClass(NullWritable.class);
+        jobCount.setOutputValueClass(Text.class);
+//        jobCount.setMapOutputValueClass(Text.class);
+        FileInputFormat.addInputPath(jobCount, new Path(args[0]));
+
+        FileOutputFormat.setOutputPath(jobCount, new Path(countsPath));
+
+        ControlledJob controlledjobCount = new ControlledJob(jobCount.getConfiguration());
 
         // JobA taking Input from Preprocessing
 
-        Job filteringJob = Job.getInstance(new Configuration(), "jobA");
+        Job filteringJob = Job.getInstance(new Configuration(), "jobA123");
         filteringJob.setNumReduceTasks(1);
         filteringJob.setJarByClass(FilteringJob.class);
         filteringJob.setMapperClass(FilteringJob.TokenizerMapper.class);
 //        jobA.setCombinerClass(WordCount.IntSumReducer.class);
-//        filteringJob.setReducerClass(FilteringJob.IntSumReducer.class);
+        filteringJob.setReducerClass(FilteringJob.WordReducer.class);
         filteringJob.setOutputKeyClass(NullWritable.class);
         filteringJob.setOutputValueClass(Text.class);
         filteringJob.addCacheFile(new Path(args[2]).toUri());
         FileInputFormat.addInputPath(filteringJob, new Path(Prep));
         FileOutputFormat.setOutputPath(filteringJob, new Path(allWordsJob));
+
 
 //        Job jobA = Job.getInstance(new Configuration(), "jobA");
 //        jobA.setJarByClass(WordCount.class);
@@ -103,29 +139,100 @@ public class RunTests {
         categotyTextsJob.setJarByClass(CategoryTextsJob.class);
         categotyTextsJob.setMapperClass(CategoryTextsJob.CategoryTextsJobMapper.class);
         categotyTextsJob.setReducerClass(CategoryTextsJob.CategoryTextsJobReducer.class);
+//        categotyTextsJob.setInputFormatClass(SequenceFileInputFormat.class);
+        categotyTextsJob.setOutputFormatClass(SequenceFileOutputFormat.class);
 //        filteringJob.setReducerClass(FilteringJob.IntSumReducer.class);
         categotyTextsJob.setOutputKeyClass(Text.class);
         categotyTextsJob.setOutputValueClass(CategoryWritable.class);
+        categotyTextsJob.setMapOutputKeyClass(Text.class);
+        categotyTextsJob.setMapOutputValueClass(CategoryWritable.class);
+//        categotyTextsJob.setMapOutputKeyClass(Text.class);
+//        categotyTextsJob.setMapOutputValueClass(CategoryWritable.class);
         FileInputFormat.addInputPath(categotyTextsJob, new Path(args[0]));
         FileOutputFormat.setOutputPath(categotyTextsJob, new Path(categoryTextsJob));
 
         ControlledJob controlledcategotyTextsJob = new ControlledJob(categotyTextsJob.getConfiguration());
+//
+//        Job chiTestJob = Job.getInstance(new Configuration(), "jobCategoryTexts");
+//        chiTestJob.setNumReduceTasks(1);
+//        chiTestJob.setJarByClass(ChiTestJob.class);
+//        chiTestJob.setMapperClass(ChiTestJob.ChiJobMapper.class);
+//        chiTestJob.setReducerClass(ChiTestJob.ChiJobReducer.class);
+////        filteringJob.setReducerClass(FilteringJob.IntSumReducer.class);
+//        chiTestJob.addCacheFile(new Path(allWordsJob + "/part-r-00000").toUri());
+//        chiTestJob.setOutputKeyClass(Text.class);
+//        chiTestJob.setOutputValueClass(CategoryWritable.class);
+//        FileInputFormat.addInputPath(chiTestJob, new Path(args[0]));
+//        FileOutputFormat.setOutputPath(chiTestJob, new Path(categoryTextsJob));
+//
+//        ControlledJob controlledChiTestJob = new ControlledJob(chiTestJob.getConfiguration());
 
         //JobB taking Input from JobA
 
-//        Job jobB = Job.getInstance(new Configuration(), "jobB");
-//        jobB.setJarByClass(JobB.class);
-//        jobB.setMapperClass(JobB.MapperB.class);
-//        jobB.setReducerClass(JobB.ReducerB.class);
-//        jobB.setOutputKeyClass(TextPair.class);
-//        jobB.setOutputValueClass(LongWritable.class);
-//        jobB.setMapOutputKeyClass(Text.class);
-//        jobB.setMapOutputValueClass(TextPairLong.class);
-//        jobB.setInputFormatClass(SequenceFileInputFormat.class);
-//        jobB.setOutputFormatClass(SequenceFileOutputFormat.class);
-//
-//        SequenceFileInputFormat.setInputPaths(jobB, new Path(JobA));
-//        SequenceFileOutputFormat.setOutputPath(jobB, new Path(JobB));
+        Job jobA = Job.getInstance(new Configuration(), "jobA");
+        jobA.setJarByClass(JobA.class);
+        jobA.setMapperClass(JobA.JobAMapper.class);
+        jobA.setNumReduceTasks(1);
+        jobA.setInputFormatClass(SequenceFileInputFormat.class);
+        jobA.setOutputKeyClass(Text.class);
+        jobA.setOutputValueClass(IntWritable.class);
+        jobA.addCacheFile(new Path(allWordsJob + "/part-r-00000").toUri());
+        FileInputFormat.addInputPath(jobA, new Path(categoryTextsJob + "/part-r-00000"));
+        FileOutputFormat.setOutputPath(jobA, new Path(jobAPath));
+        jobA.setOutputFormatClass(SequenceFileOutputFormat.class);
+
+        ControlledJob controlledJobA = new ControlledJob(jobA.getConfiguration());
+        controlledJobA.addDependingJob(controlledcategotyTextsJob);
+
+
+        Job jobB = Job.getInstance(new Configuration(), "jobB");
+        jobB.setJarByClass(JobB.class);
+        jobB.setMapperClass(JobB.JobBMapper.class);
+        jobB.setReducerClass(JobB.JobBReducer.class);
+        jobB.setNumReduceTasks(1);
+        jobB.setInputFormatClass(SequenceFileInputFormat.class);
+        jobB.setOutputKeyClass(Text.class);
+        jobB.setOutputValueClass(Text.class);
+        jobB.setOutputFormatClass(SequenceFileOutputFormat.class);
+        jobB.addCacheFile(new Path(allWordsJob + "/part-r-00000").toUri());
+        FileInputFormat.addInputPath(jobB, new Path(categoryTextsJob + "/part-r-00000"));
+        FileOutputFormat.setOutputPath(jobB, new Path(jobBPath));
+
+        ControlledJob controlledJobB = new ControlledJob(jobB.getConfiguration());
+        controlledJobB.addDependingJob(controlledcategotyTextsJob);
+
+        Job jobB2 = Job.getInstance(new Configuration(), "jobB2");
+        jobB2.setJarByClass(JobB2.class);
+        jobB2.setMapperClass(JobB2.TokenizerMapper.class);
+        jobB2.setNumReduceTasks(1);
+        jobB2.setInputFormatClass(SequenceFileInputFormat.class);
+        jobB2.setOutputFormatClass(SequenceFileOutputFormat.class);
+        jobB2.setOutputKeyClass(Text.class);
+        jobB2.setOutputValueClass(IntWritable.class);
+        jobB2.addCacheFile(new Path(countsCategoriesPath + "/result-r-00000").toUri());
+        FileInputFormat.addInputPath(jobB2, new Path(jobBPath + "/part-r-00000"));
+        FileOutputFormat.setOutputPath(jobB2, new Path(jobB2Path));
+
+        ControlledJob controlledJobB2 = new ControlledJob(jobB2.getConfiguration());
+        controlledJobB2.addDependingJob(controlledgetCategoriesJob);
+        controlledJobB2.addDependingJob(controlledJobB);
+
+
+        Job jobC = Job.getInstance(new Configuration(), "jobC");
+        jobC.setJarByClass(JobC.class);
+        jobC.setMapperClass(JobC.JobCMapper.class);
+        jobC.setNumReduceTasks(1);
+        jobC.setInputFormatClass(SequenceFileInputFormat.class);
+        jobC.setOutputFormatClass(SequenceFileOutputFormat.class);
+        jobC.setOutputKeyClass(Text.class);
+        jobC.setOutputValueClass(IntWritable.class);
+        jobC.addCacheFile(new Path(allWordsJob + "/part-r-00000").toUri());
+        FileInputFormat.addInputPath(jobC, new Path(categoryTextsJob + "/part-r-00000"));
+        FileOutputFormat.setOutputPath(jobC, new Path(jobCPath));
+
+        ControlledJob controlledJobC = new ControlledJob(jobC.getConfiguration());
+        controlledJobC.addDependingJob(controlledcategotyTextsJob);
+
 //
 //
 //        //JobB depends on JobA
@@ -175,28 +282,29 @@ public class RunTests {
 //
 //        //JobChi taking Input from JobA,B, C2 and Sum
 //
-//        Job jobChi = Job.getInstance(new Configuration(), "jobChi");
-//        jobChi.setJarByClass(JobChi.class);
+        Job jobChi = Job.getInstance(new Configuration(), "jobChi");
+        jobChi.setJarByClass(ChiTestJob.class);
 //        jobChi.setSortComparatorClass(TextPair.Comparator.class);
-//        jobChi.addCacheFile(new Path(JobSum +"/part-r-00000").toUri());
-//        jobChi.setMapperClass(JobChi.MapperChi.class);
-//        jobChi.setReducerClass(JobChi.ReducerChi.class);
-//        jobChi.setOutputKeyClass(TextPair.class);
-//        jobChi.setOutputValueClass(DoubleWritable.class);
+        jobChi.addCacheFile(new Path(countsPath +"/result2-r-00000").toUri());
+//        jobChi.setMapperClass(ChiTestJob.MapperChi.class);
+        jobChi.setReducerClass(ChiTestJob.ChiJobReducer.class);
+        jobChi.setOutputKeyClass(Text.class);
+        jobChi.setOutputValueClass(Text.class);
 //        jobChi.setMapOutputKeyClass(TextPair.class);
 //        jobChi.setMapOutputValueClass(TextPairLong.class);
 //        jobChi.setInputFormatClass(SequenceFileInputFormat.class);
 //        jobChi.setOutputFormatClass(SequenceFileOutputFormat.class);
-//        MultipleInputs.addInputPath(jobChi, new Path(JobA), SequenceFileInputFormat.class, JobChi.MapperA.class);
-//        MultipleInputs.addInputPath(jobChi, new Path(JobB), SequenceFileInputFormat.class, JobChi.MapperB.class);
-//        MultipleInputs.addInputPath(jobChi, new Path(JobC2),SequenceFileInputFormat.class, JobChi.MapperChi.class);
+        MultipleInputs.addInputPath(jobChi, new Path(jobAPath), SequenceFileInputFormat.class, ChiTestJob.ChiJobAMapper.class);
+        MultipleInputs.addInputPath(jobChi, new Path(jobB2Path), SequenceFileInputFormat.class, ChiTestJob.ChiJobBMapper.class);
+        MultipleInputs.addInputPath(jobChi, new Path(jobCPath), SequenceFileInputFormat.class, ChiTestJob.ChiJobCMapper.class);
 //
-//        SequenceFileOutputFormat.setOutputPath(jobChi, new Path(JobChi));
+        SequenceFileOutputFormat.setOutputPath(jobChi, new Path(jobChiPath));
 //
-//        ControlledJob controlledJobChi = new ControlledJob(jobChi.getConfiguration());
-//        controlledJobChi.addDependingJob(controlledJobA);
-//        controlledJobChi.addDependingJob(controlledJobB);
-//        controlledJobChi.addDependingJob(controlledJobC2);
+        ControlledJob controlledChiTestJob = new ControlledJob(jobChi.getConfiguration());
+        controlledChiTestJob.addDependingJob(controlledJobA);
+        controlledChiTestJob.addDependingJob(controlledJobB2);
+        controlledChiTestJob.addDependingJob(controlledJobC);
+        controlledChiTestJob.addDependingJob(controlledjobCount);
 //
 //
 //        //JobTop150 taking Input from JobChi
@@ -241,7 +349,14 @@ public class RunTests {
         JobControl jobControl = new JobControl("jobControl");
 //        jobControl.addJob(controlledJobC1);
         jobControl.addJob(controlledFilteringJob);
+        jobControl.addJob(controlledjobCount);
         jobControl.addJob(controlledcategotyTextsJob);
+        jobControl.addJob(controlledJobA);
+        jobControl.addJob(controlledJobB);
+        jobControl.addJob(controlledJobC);
+        jobControl.addJob(controlledChiTestJob);
+        jobControl.addJob(controlledgetCategoriesJob);
+        jobControl.addJob(controlledJobB2);
 //        jobControl.addJob(controlledJobB);
 //        jobControl.addJob(controlledJobC2);
 //        jobControl.addJob(controlledJobChi);
@@ -251,7 +366,7 @@ public class RunTests {
         starter.start();
 
 
-        while(!jobControl.allFinished()) {
+        while (!jobControl.allFinished()) {
             Thread.sleep(1000);
         }
 

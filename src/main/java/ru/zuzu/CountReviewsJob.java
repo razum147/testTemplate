@@ -10,7 +10,7 @@ import org.codehaus.jettison.json.JSONObject;
 import java.io.IOException;
 import java.math.BigInteger;
 
-public class GetFromJSONJob {
+public class CountReviewsJob {
 
     public static class TokenizerMapperWithJson
             extends Mapper<Object, Text, NullWritable, Text> {
@@ -39,23 +39,23 @@ public class GetFromJSONJob {
         }
     }
 
-//    public static class IntSumReducer
-//            extends Reducer<NullWritable, Text, NullWritable, Text> {
-//
-//        Text valueToEmit = new Text();
-//        BigInteger val = new BigInteger("0");
-//
-//        public void reduce(NullWritable key, Iterable<Text> values, Context context)
-//                throws IOException, InterruptedException {
-//            for (Text x : values) {
-//                val = val.add(BigInteger.ONE);
-//            }
-//
-//            valueToEmit.set(val.toString());
-////            valueToEmit.set(sb.substring(0, sb.length() - 1)); //to remove the last ','
-//            context.write(NullWritable.get(), valueToEmit);
-//        }
-//    }
+    public static class IntSumReducer
+            extends Reducer<NullWritable, Text, NullWritable, Text> {
+
+        Text valueToEmit = new Text();
+        BigInteger val = new BigInteger("0");
+
+        public void reduce(NullWritable key, Iterable<Text> values, Context context)
+                throws IOException, InterruptedException {
+            for (Text x : values) {
+                val = val.add(BigInteger.ONE);
+            }
+
+            valueToEmit.set(val.toString());
+//            valueToEmit.set(sb.substring(0, sb.length() - 1)); //to remove the last ','
+            context.write(NullWritable.get(), valueToEmit);
+        }
+    }
 
 //    public static void main(String[] args) throws Exception {
 //        Configuration conf = new Configuration();
